@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: etcd-cluster
+  namespace: passover
+spec:
+  serviceName: etcd-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: etcd-cluster
+  template:
+    metadata:
+      labels:
+        app: etcd-cluster
+    spec:
+      containers:
+      - name: etcd
+        image: quay.io/coreos/etcd:v3.5.9
+        ports:
+        - containerPort: 2379
+          name: client
+        - containerPort: 2380
+          name: peer
+        env:
+        - name: ETCD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ETCD_INITIAL_CLUSTER_STATE
+          value: "new"
+        - name: ETCD_INITIAL_CLUSTER
+          value: "etcd-cluster-0=http://etcd-cluster-0.etcd-cluster:2380,etcd-cluster-1=http://etcd-cluster-1.etcd-cluster:2380,etcd-cluster-2=http://etcd-cluster-2.etcd-cluster:2380"
+        - name: ETCD_INITIAL_ADVERTISE_PEER_URLS
+          value: "http://$(ETCD_NAME).etcd-cluster:2380"
+        - name: ETCD_ADVERTISE_CLIENT_URLS
+          value: "http://$(ETCD_NAME).etcd-cluster:2379"
+        - name: ETCD_LISTEN_PEER_URLS
+          value: "http://0.0.0.0:2380"
+        - name: ETCD_LISTEN_CLIENT_URLS
+          value: "http://0.0.0.0:2379"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 2379
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 2379
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: etcd-data
+          mountPath: /var/lib/etcd
+  volumeClaimTemplates:
+  - metadata:
+      name: etcd-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

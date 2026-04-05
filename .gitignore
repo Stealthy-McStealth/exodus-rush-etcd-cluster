@@ -1,0 +1,9 @@
+# etcd data
+*.etcd/
+data/
+
+# Logs
+*.log
+
+# Kubernetes secrets
+*.secret.yaml
